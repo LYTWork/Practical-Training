@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>后台登录-医院药品管理系统</title>
+<meta name="author" content="DeathGhost" />
+<link rel="stylesheet" type="text/css" href="static/css/style.css" />
+<style>
+    /*body{height:100%;background:#16a085;overflow:hidden;}*/
+    body{
+        height:100%;
+        /*background:url('static/images/login_bg3.jpg') no-repeat;*/
+        background-color: rgba(245, 255, 241, 0.91);
+        overflow:hidden;
+        background-size: cover;
+    }
+    canvas{
+        z-index:-1;
+        position:absolute;
+    }
+    .white_content {
+        display: none;
+        position: absolute;
+        top: 25%;
+        left: 35%;
+        width: 25%;
+        height: 15%;
+        padding: 16px;
+        border: solid black;
+        background-color: white;
+        z-index:1002;
+        overflow: auto;
+    }
+</style>
+<script src="static/js/jquery.js"></script>
+<script src="static/js/verifyCode.js"></script>
+<script>
+
+	$(document).ready(function() {
+        $("#loginBtn").click(function () {//点击登录，向后台发送登录信息，返回验证结果
+            $.post("/user/login", {
+                userName: $("#userName").val(),
+                password: $("#password").val(),
+                imageCode: $("#imageCode").val()
+            }, function (result) {
+                if (result.success) {         //登陆成功
+                    if (result.roleSize == 1) {
+                        var roleId = result.roleList[0].id;
+                        $.post("/user/saveRole", {roleId: roleId}, function (result) {    //判断角色，不同角色功能菜单不同
+                            if (result.success) {
+                                window.location.href = "/main.html";        //跳转
+                            }
+                        });
+                    } else {
+                        $("#roleList").empty();
+                        var roles = result.roleList;
+                        for (var i = 0; i < roles.length; i++) {
+                            if (i == 0) {
+                                $("#roleList").append("<input type='radio' checked=true  name='role' value='" + roles[i].id + "'/>" + roles[i].name + "&nbsp;&nbsp;")
+
+                            } else {
+                                $("#roleList").append("<input type='radio' name='role' value='" + roles[i].id + "'/>" + roles[i].name + "&nbsp;&nbsp;")
+                            }
+                        }
+                        document.getElementById('fade').style.display = 'block';   //
+                    }
+                } else {
+                    alert(result.errorInfo);
+                }
+            });
+        });
+    });
+	
+	
+	function saveRole(){
+		var roleId=$("input[name='role']:checked").val();   //获取单选框的值
+		$.post("/user/saveRole",{roleId:roleId},function(result){
+			if(result.success){
+				window.location.href="/main.html";	
+			}
+		});
+	}
+    //点击换一张验证码
+    function changeImg() {
+        var imgSrc = $("#imgObj");
+        var src = imgSrc.attr("src");
+        imgSrc.attr("src",chgUrl(src));
+        $("#info").html("");
+    }
+    //时间戳
+    //为了使每次生成图片不一致，即不让浏览器读缓存，所以需要加上时间戳
+    function chgUrl(url) {
+        var timestamp = (new Date()).valueOf();
+        url = url.substring(0, 17);
+        if ((url.indexOf("&") >= 0)) {
+            url = url + "×tamp=" + timestamp;
+        } else {
+            url = url + "?timestamp=" + timestamp;
+        }
+        return url;
+    }
+</script>
+</head>
+<body>
+<dl class="admin_login">
+    <dt>
+        <strong>医院药品管理系统</strong>
+        <em>Hospital Drugs Management System</em>
+    </dt>
+    <dd class="user_icon">
+        <input type="text" id="userName" placeholder="账号" class="login_txtbx"/>
+    </dd>
+    <dd class="pwd_icon">
+        <input type="password" id="password" placeholder="密码" class="login_txtbx"/>
+    </dd>
+    <dd class="val_icon">
+        <div class="checkcode">   <!--验证码-->
+            <input type="text" id="imageCode" name="imageCode" placeholder="验证码" maxlength="4" class="login_txtbx">
+            <img id="imgObj" title="看不清，换一张" src="/drawImage" onclick="changeImg()" /><!--添加验证码的点击事件，点击切换验证码-->
+        </div>
+    </dd>
+    <dd>
+        <input type="button" id="loginBtn" value="立即登录" class="submit_btn"/>
+    </dd>
+</dl>
+
+
+</body>
+</html>

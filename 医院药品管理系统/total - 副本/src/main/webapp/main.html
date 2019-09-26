@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>药品库房管理系统</title>
+<link rel="stylesheet" type="text/css" href="/static/jquery-easyui-1.3.3/themes/default/easyui.css"></link>
+<link rel="stylesheet" type="text/css" href="/static/jquery-easyui-1.3.3/themes/icon.css"></link>
+<style type="text/css">
+	.clock {
+		float:right;
+	    width: 300px;
+	    height: 30px;
+	    padding-left: 20px;
+	    color: rgb(73, 126, 110);
+	    font-size: 14px;
+		position: relative;
+		top: 20px;
+	}
+	.userInfo{
+		float:left;
+		padding-left: 20px;
+		padding-top: 20px;
+		font-size: 20px;
+		position: relative;
+		top: -5px;
+	}
+	#dlg{
+		width:400px;
+		height:250px;
+		padding: 10px 20px;
+	}
+	input[type="password"]{
+		width: 200px;
+	}
+
+</style>
+<script type="text/javascript" src="/static/jquery-easyui-1.3.3/jquery.min.js"></script>
+<script type="text/javascript" src="/static/jquery-easyui-1.3.3/jquery.easyui.min.js"></script>
+<script type="text/javascript" src="/static/jquery-easyui-1.3.3/locale/easyui-lang-zh_CN.js"></script>
+<script type="text/javascript">
+	
+	var url;
+
+	//显示当前时间
+	function showTime(){
+		var date = new Date();
+		this.year = date.getFullYear();
+		this.month = date.getMonth() + 1;
+		this.date = date.getDate();
+		this.day = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][date.getDay()];
+		this.hour = date.getHours() < 10 ? "0" + date.getHours() : date.getHours();
+		this.minute = date.getMinutes() < 10 ? "0" + date.getMinutes() : date.getMinutes();
+		this.second = date.getSeconds() < 10 ? "0" + date.getSeconds() : date.getSeconds();
+		
+		$("#clock").text("当前时间:" + this.year + "年" + this.month + "月" + this.date + "日 " + this.hour + ":" + this.minute + ":" + this.second + " " + this.day);
+	}
+	// 定义计时器，实现时间刷新
+	window.setInterval("showTime()",1000);
+	
+	$(document).ready(function() {
+		// iframe嵌入库存信息html
+		// 重载页面时不需要重载整个页面，只需要重载页面中的一个框架页（减少数据的传输，减少网页的加载时间）
+		var content="<iframe frameborder=0 scrolling='auto' style='width:100%;height:99%' src='/common/welcome.html'></iframe>";
+		$("#tabs").tabs("add",{
+			title:"首页",
+			iconCls:"menu-2",
+			closable:false,
+			content:content
+		});
+		// 树（Tree）也可以在一个空的 <ul> 元素中定义，可使用 javascript 加载数据。
+		$("#tree").tree({
+			lines:true,
+			url:'/user/loadMenuInfo?parentId=-1',
+			onLoadSuccess:function(){
+				$("#tree").tree('expandAll');
+			},
+			onClick:function(node){
+				if(node.id==6050){
+					logout();
+				}else if(node.id==6040){
+					openPasswordModifyDialog();
+				}else　if(node.attributes.url){
+					openTab(node);
+				}
+			}
+		});
+		
+		function openTab(node){
+			// 判断tabs是否存在
+			if($("#tabs").tabs("exists",node.text)){
+				// 存在，则设置为选中状态
+				$("#tabs").tabs("select",node.text);
+			}else{
+				var content="<iframe frameborder=0 scrolling='auto' style='width:100%;height:99%' src='"+node.attributes.url+"'></iframe>";
+				// 添加选项卡
+				$("#tabs").tabs("add",{
+					title:node.text,
+					iconCls:node.iconCls,
+					closable:true,
+					content:content
+				});
+			}
+		}
+
+		// 监听右键事件，创建右键菜单
+		// 选项卡,多tabs的切换与显示
+        $('#tabs').tabs({
+            onContextMenu:function(e, title,index){
+                e.preventDefault();
+                if(index>0){
+                    $('#menu').menu('show', {
+                        left: e.pageX,
+                        top: e.pageY
+                    }).data("tabTitle", title);
+                }
+            }
+        });
+        // 右键菜单click
+        $("#menu").menu({
+            onClick : function (item) {
+                closeTab(this, item.name);
+            }
+        });
+        function closeTab(menu, type) {
+            var allTabs = $("#tabs").tabs('tabs');
+            var allTabtitle = [];
+            $.each(allTabs, function (i, n) {
+                var opt = $(n).panel('options');
+                if (opt.closable)
+                    allTabtitle.push(opt.title);
+            });
+            var curTabTitle = $(menu).data("tabTitle");
+            var curTabIndex = $("#tabs").tabs("getTabIndex", $("#tabs").tabs("getTab", curTabTitle));
+            switch (type) {
+           		case "1": // 刷新当前标签页
+    	            var panel = $("#tabs").tabs("getTab", curTabTitle).panel("refresh");
+    	            break;
+                case "2": // 关闭当前标签页
+                    $("#tabs").tabs("close", curTabIndex);
+                    return false;
+                    break;
+                case "3": // 关闭全部标签页
+                    for (var i = 0; i < allTabtitle.length; i++) {
+                        $('#tabs').tabs('close', allTabtitle[i]);
+                    }
+                    break;
+                case "4": // 关闭其他标签页
+                    for (var i = 0; i < allTabtitle.length; i++) {
+                        if (curTabTitle != allTabtitle[i])
+                            $('#tabs').tabs('close', allTabtitle[i]);
+                    }
+                    $('#tabs').tabs('select', curTabTitle);
+                    break;
+                case "5": // 关闭右侧标签页
+                    for (var i = curTabIndex; i < allTabtitle.length; i++) {
+                        $('#tabs').tabs('close', allTabtitle[i]);
+                    }
+                    $('#tabs').tabs('select', curTabTitle);
+                    break;
+                case "6": // 关闭左侧标签页
+                    for (var i = 0; i < curTabIndex - 1; i++) {
+                        $('#tabs').tabs('close', allTabtitle[i]);
+                    }
+                    $('#tabs').tabs('select', curTabTitle);
+                    break;
+            }
+        }
+
+
+		// 加载用户信息
+		$("#userInfo").load("/user/loadUserInfo");
+		//弹出修改密码对话框
+		function openPasswordModifyDialog(){
+			$("#dlg").dialog("open").dialog("setTitle","修改密码");
+			url="/admin/user/modifyPassword";
+		}
+        //退出系统实现
+		function logout(){
+			$.messager.confirm("系统提示","您确定要退出系统吗？",function(r){
+				if(r){
+					window.location.href='/admin/user/logout';
+				}
+			});
+		}
+
+	});
+	// 对话框中修改密码
+	function modifyPassword(){
+		$("#fm").form("submit",{    //提交数据
+			url:url,
+			onSubmit:function(){
+				var newPassword=$("#newPassword").val();
+				var newPassword2=$("#newPassword2").val();
+				if(!$(this).form("validate")){  //对表单进行校验
+					return false;
+				}
+				if(newPassword!=newPassword2){
+					$.messager.alert("系统提示","确认密码输入错误！");
+					return false;
+				}
+				return true;
+			},
+			success:function(result){
+				var result=eval('('+result+')');
+				if(result.success){
+					$.messager.alert("系统提示","密码修改成功，下一次登录生效！");
+					resetValue();
+					$("#dlg").dialog("close");
+				}else{
+					$.messager.alert("系统提示","密码修改失败！");
+
+				}
+			}
+		 });
+	}
+	
+	function closePasswordModifyDialog(){
+		resetValue();
+		$("#dlg").dialog("close");
+	}
+	
+	function resetValue(){
+		$("#newPassword").val("");
+		$("#newPassword2").val("");
+	}
+
+</script>
+</head>
+<!--使用layout布局-->
+<!--region	string	定义布局面板（layout panel）的位置，其值是下列之一：north、south、east、west、center。-->
+<!--fit	boolean	当设置为 true 时，就设置布局（layout）的尺寸适应它的父容器。当在 'body' 标签上创建布局（layout）时，它将自动最大化到整个页面的全部尺寸。-->
+<!--border	boolean	当设置为 true 时，就显示布局面板（layout panel）的边框-->
+<body class="easyui-layout">          <!-- 在这里设置整个页面为layout布局-->
+<div region="north" style="height: 150px;">
+	<table width="100%" height="100%" border="0" cellspacing="0" cellpadding="0">
+		<tr style="background:url(/static/images/timg.jpg); background-repeat:no-repeat; background-size:30% 100%;-moz-background-size:100% 100%;">
+			<td width="381px" ></td>
+			<td >
+				<div style="color: #0c9c6e;font-size: 50px;">医药药品库存管理系统</div>
+			</td>
+			<td valign="bottom" >
+				<div id="userInfo" class="userInfo" ></div>
+				<div id="clock" class="clock"></div>
+			</td>
+		</tr>
+	</table>
+</div>
+
+<div region="center">
+	<div id="tabs" class="easyui-tabs" fit="true" border="false" >
+	</div>
+</div>
+<!--动态创建导航-->
+<div region="west" style="width: 200px;" title="导航菜单"  iconCls="icon-navigation">
+	<ul id="tree" class="easyui-tree" style="padding: 10px;font-size: 30px;height: 100%;overflow: auto;" fit="true" split="true"></ul> <!--定义一个容器-->
+</div>
+
+<!--修改用户密码-->
+<div id="dlg" class="easyui-dialog"
+   closed="true" buttons="#dlg-buttons"  data-options="onClose:function(){resetValue()}">
+   	<form id="fm" method="post">
+		<table cellspacing="8px">
+			<tr>
+				<td>新密码：</td>
+				<td><input type="password" id="newPassword" name="newPassword" class="easyui-validatebox" required="true"/></td>
+			</tr>
+			<tr>
+				<td>确认新密码：</td>
+				<td><input type="password" id="newPassword2" name="newPassword2" class="easyui-validatebox" required="true"/></td>
+			</tr>
+   	</table>
+   	</form>
+ </div>
+<!--<div region="south" title="South Title" split="true" style="height:100px;background: #0c9c6e">-->
+	<!--<div>2019@   医院药品管理仓库</div>-->
+<!--</div>-->
+
+<div id="dlg-buttons">
+	<a href="javascript:modifyPassword()" class="easyui-linkbutton" iconCls="icon-ok">保存</a>
+	<a href="javascript:closePasswordModifyDialog()" class="easyui-linkbutton" iconCls="icon-cancel">关闭</a>
+</div>
+
+  <div id="menu" class="easyui-menu" >
+      <div id="mm-tabrefresh" data-options="name:1,iconCls:'icon-refresh'"> 刷新当前标签页</div>
+      <div class="menu-sep"></div>
+      <div id="mm-tabclose" data-options="name:2,iconCls:'icon-closetab'">关闭当前标签页</div>
+      <div id="mm-tabcloseall" data-options="name:3,iconCls:'icon-closealltab'">关闭全部标签页</div>
+      <div id="mm-tabcloseother" data-options="name:4,iconCls:'icon-closeothertab'">关闭其他标签页</div>
+      <div id="mm-tabcloseright" data-options="name:5,iconCls:'icon-closerighttab'">关闭右侧标签页</div>
+      <div id="mm-tabcloseleft" data-options="name:6,iconCls:'icon-closelefttab'">关闭左侧标签页</div>
+  </div>
+</body>
+</html>

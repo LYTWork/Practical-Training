@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>退货出库</title>
+<link rel="stylesheet" type="text/css" href="/static/jquery-easyui-1.3.3/themes/default/easyui.css"></link>
+<link rel="stylesheet" type="text/css" href="/static/jquery-easyui-1.3.3/themes/icon.css"></link>
+<link rel="stylesheet" type="text/css" href="/static/bootstrap3/css/bootstrap.min.css">
+<script type="text/javascript" src="/static/jquery-easyui-1.3.3/jquery.min.js"></script>
+<script type="text/javascript" src="/static/jquery-easyui-1.3.3/jquery.easyui.min.js"></script>
+<script type="text/javascript" src="/static/jquery-easyui-1.3.3/locale/easyui-lang-zh_CN.js"></script>
+<script type="text/javascript" src="/static/bootstrap3/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="/static/js/date.js"></script>
+<style>
+	#dlg-buttons4,#dlg-buttons2 {
+		position: relative;
+		top: -35px;
+	}
+</style>
+<script type="text/javascript">
+
+	var url;
+	
+	function openReturnListDrugsAddDialog(){
+		$("#dlg").dialog("open").dialog("setTitle","退货出库药品选择");
+		
+		$("#tree").tree({
+			url:'/admin/drugsType/loadTreeInfo',
+			onLoadSuccess:function(node, data){
+				var rootNode = $("#tree").tree('getRoot'); 
+				$("#tree").tree('expand',rootNode.target);
+			},
+			onClick:function(node){
+				if(node.attributes.state==0){ // 假如是叶子节点 删除按钮恢复可用
+					$('#del').linkbutton('enable');
+					$('#del').attr("href","javascript:deleteDrugsType()");
+				}else{
+					$('#del').linkbutton('disable');
+				}
+				$("#dg3").datagrid('load',{
+					"type.id":node.id
+				});
+			}
+		});
+	}
+	
+	function openReturnListDrugsModifyDialog(){
+		$("#saveAndAddNextBuuton").hide();
+		var selectedRows=$("#dg").datagrid("getSelections");
+		if(selectedRows.length!=1){
+			$.messager.alert("系统提示","请选择一个药品！");
+			return;
+		}
+		var row=selectedRows[0];
+		$("#dlg4").dialog("open").dialog("setTitle","修改退货单药品");
+		$("#fm4").form("load",row);
+		$("#lastReturnPrice").val("￥"+row.lastPurchasingPrice);
+		$("#price").numberbox("setValue",row.price);
+		$("#num").numberbox("setValue",row.num);
+		$("#num").focus();
+		$("#action").val("modify");
+		$("#rowIndex").val($("#dg").datagrid("getRowIndex",row));
+	}
+	
+	function deleteReturnListDrugs(){
+		var selectedRows=$("#dg").datagrid("getSelections");
+		if(selectedRows.length!=1){
+			 $.messager.alert("系统提示","请选择要删除的药品！");
+			 return;
+		 }
+		 $.messager.confirm("系统提示","您确定要删除这个药品吗？",function(r){
+				if(r){
+					$('#dg').datagrid('deleteRow',$("#dg").datagrid("getRowIndex",selectedRows[0]));
+					setReturnListAmount();
+				} 
+	   });
+	}
+	
+	
+	
+	
+	function setReturnListAmount(){
+		var rows=$("#dg").datagrid("getRows");
+		var amount=0;
+		for(var i=0;i<rows.length;i++){
+			var row=rows[i];
+			amount+=row.total;
+		}
+		$("#amountPayable").val(amount.toFixed(2));
+		$("#amountPaid").val(amount.toFixed(2));
+	}
+	
+	$(document).ready(function(){
+
+		$('#supplier').combobox({
+		mode:'remote' ,
+		url:'/admin/supplier/comboList',
+		valueField:'name',
+		textField:'name',
+		delay:100
+		});
+		
+		
+	
+		$("#returnDate").datebox("setValue",genTodayStr()); // 设置当前日期
+		
+		$("#dh").load('/admin/returnList/getReturnNumber');
+		
+	});
+
+	
+	function saveReturnDrugs(){
+		var drugsJson=JSON.stringify($("#dg").datagrid("getData").rows);
+		$("#drugsJson").val(drugsJson);
+		$("#returnNumber").val($("#dh").text());
+		$("#fm6").form("submit",{
+			url:"/admin/returnList/save",
+			onSubmit:function(){
+				if($("#dg").datagrid("getRows").length==0){
+					$.messager.alert("系统提示","请添加退货药品!");
+					return false;
+				}
+				if(!$(this).form("validate")){
+					return false;
+				}
+				if(isNaN($("#supplierId").combobox("getValue"))){
+					alert("请选择供应商！");
+					return false;
+				}
+				return true;
+			},
+			success:function(result){
+				var result=eval('('+result+')');
+				if(result.success){
+					alert("保存成功！");
+					window.location.reload();
+				}else{
+					$.messager.alert("系统提示",result.errorInfo);
+				}
+			}
+		 });
+	}
+	
+	
+	
+	
+	//  药品类别模块管理
+
+
+	function openDrugsTypeAddDialog(){
+		$("#dlg2").dialog("open").dialog("setTitle","新增药品类别");
+	}
+	
+	function deleteDrugsType(){
+		var node = $('#tree').tree('getSelected'); // 获取选中节点
+		var id=node.id;
+		$.post("/admin/drugsType/delete",{id:id},function(result){
+			if(result.success){
+				$('#tree').tree('reload');
+			}else{
+				$.messager.alert("系统提示","提交失败，请联系管理员！");
+			}
+			$('#del').linkbutton('disable');
+		},"json");
+	}
+	
+	function saveDrugsType(){
+		var drugsTypeName=$("#drugsTypeName").val();
+		if(!$("#fm").form("validate")){
+			return;
+		}
+		var node = $('#tree').tree('getSelected'); // 获取选中节点
+		var parentId; // 父节点Id
+		if(node==null){
+			parentId=1;
+		}else{
+			parentId=node.id;
+		}
+		$.post("/admin/drugsType/save",{name:drugsTypeName,parentId:parentId},function(result){
+			if(result.success){
+				$('#tree').tree('reload');
+				closeDrugsTypeDialog();
+			}else{
+				$.messager.alert("系统提示","提交失败，请联系管理员！");
+			}
+		},"json");
+	}
+	
+
+	
+	function closeDrugsTypeDialog(){
+		$("#dlg2").dialog("close");
+		$("#drugsTypeName").val("");
+	}
+	
+	function formatReturnPrice(val,row){
+		return "￥"+val;	
+	}
+	
+	function formatLastReturnPrice(val,row){
+		return "￥"+val;	
+	}
+	
+	function searchDrugs(){
+		$("#dg3").datagrid('load',{
+			"codeOrName":$("#s_codeOrName").val()
+		});
+	}
+	
+	function closeDrugsDialog(){
+		$("#s_codeOrName").val("");
+		$("#dlg").dialog("close");
+	}
+	
+	function openDrugsChooseDialog(){
+		$("#saveAndAddNextBuuton").show();
+		var selectedRows=$("#dg3").datagrid("getSelections");
+		if(selectedRows.length!=1){
+			$.messager.alert("系统提示","请选择一个药品！");
+			return;
+		}
+	    var row=selectedRows[0];
+		$("#dlg4").dialog("open").dialog("setTitle","选择药品");
+		$("#fm4").form("load",row);
+		$("#lastReturnPrice").val("￥"+row.lastPurchasingPrice);
+		$("#price").numberbox("setValue",row.lastPurchasingPrice);
+		$("#num").focus();
+		$("#action").val("add");
+	}
+	
+	function closeDrugsChooseDialog(){
+		$("#dlg4").dialog("close");
+		resetValue();
+	}
+	
+	function resetValue(){
+		$("#num").numberbox("setValue","");
+		$("#price").val("");
+	}
+	
+	
+	
+	function formatTotal(val,row){
+		return "￥"+val.toFixed(2);
+	}
+	
+	function formatPrice(val,row){
+		return "￥"+val;
+	}
+	
+	
+	function saveDrugs(type){
+		var action=$("#action").val();
+		if(!$("#fm5").form("validate")){
+			return;
+		}
+		if(action=="add"){
+			var selectedRows=$("#dg3").datagrid("getSelections");
+			var row=selectedRows[0];
+			var price=$("#price").numberbox("getValue");
+			var num=$("#num").numberbox("getValue");
+			var total=price*num;
+			$('#dg').datagrid('appendRow',{
+				code:row.code,
+				name:row.name,
+				model:row.model,
+				unit:row.unit,
+				price:price,
+				num:num,
+				total:total,
+				typeId:row.type.id,
+				drugsId:row.id,
+				inventoryQuantity:row.inventoryQuantity,
+				lastPurchasingPrice:row.lastPurchasingPrice
+			});			
+		}else if(action=="modify"){
+			var rowIndex=$("#rowIndex").val();
+			var selectedRows=$("#dg").datagrid("getSelections");
+			var row=selectedRows[0];
+			var price=$("#price").numberbox("getValue");
+			var num=$("#num").numberbox("getValue");
+			var total=price*num;
+			$('#dg').datagrid('updateRow',{
+				index: rowIndex,
+				row: {
+					code:row.code,
+					name:row.name,
+					model:row.model,
+					unit:row.unit,
+					price:price,
+					num:num,
+					total:total,
+					typeId:row.typeId,
+					drugsId:row.id,
+					inventoryQuantity:row.inventoryQuantity,
+					lastPurchasingPrice:row.lastPurchasingPrice
+				}
+			});
+		}
+		setReturnListAmount();
+		if(type==1){
+			closeDrugsDialog();
+		}
+		closeDrugsChooseDialog();
+	}
+	
+	
+	$(function () {  
+		 
+		$("#dg").datagrid({  
+	        //双击事件  
+	        onDblClickRow: function (index, row) {  
+	        	$("#saveAndAddNextBuuton").hide();
+	    		$("#dlg4").dialog("open").dialog("setTitle","修改退货单药品");
+	    		$("#fm4").form("load",row);
+	    		$("#lastReturnPrice").val("￥"+row.lastPurchasingPrice);
+	    		$("#price").numberbox("setValue",row.price);
+	    		$("#num").numberbox("setValue",row.num);
+	    		$("#num").focus();
+	    		$("#action").val("modify");
+	    		$("#rowIndex").val($("#dg").datagrid("getRowIndex",row));
+	        }  
+	   });  
+		
+		
+		 $("#dg3").datagrid({  
+		        // 双击事件  
+		        onDblClickRow: function (index, row) {  
+		        	$("#dlg4").dialog("open").dialog("setTitle","选择药品");
+		    		$("#fm4").form("load",row);
+		    		$("#lastReturnPrice").val("￥"+row.lastPurchasingPrice);
+		    		$("#price").numberbox("setValue",row.lastPurchasingPrice);
+		    		$("#num").focus();
+		        }  
+		   });  
+		 
+	 });
+</script>
+</head>
+<body class="easyui-layout" >
+	<div region="north" style="height: 135px;padding: 10px;border: 0px;padding-top: 20px" >
+		<fieldset style="border-color: #E7F0FF">
+ 			<legend>单号：<span id="dh"></span></legend>
+ 			<form id="fm6" method="post">
+ 			<table cellspacing="8px">
+ 				<tr>
+ 					<td>
+	 					供应商：<select class="easyui-combobox"  id="supplierId" name="supplier.id" style="width: 200px;" required=true data-options="required:true,panelHeight:'auto',valueField:'id',textField:'name',url:'/admin/supplier/comboList'"></select>
+ 					</td>
+ 					<td>
+ 						&nbsp;&nbsp;&nbsp;&nbsp;应付金额：<input type="text" id="amountPayable" name="amountPayable" size="10" readonly="readonly" class="easyui-validatebox" required="true"/>
+ 					</td>
+ 					<td>
+ 						&nbsp;&nbsp;&nbsp;&nbsp;实付金额：<input type="text" id="amountPaid"  name="amountPaid" size="10" class="easyui-validatebox" required="true"/>
+ 					</td>
+ 					<td>
+ 						&nbsp;&nbsp;&nbsp;&nbsp;收货日期：<input type="text" id="returnDate" name="returnDate" required=true size="18" class="easyui-datebox" data-options="editable:false" />
+ 					</td>
+ 					<td></td>
+ 				</tr>
+ 				<tr>
+ 					<td colspan="3">
+ 						备&nbsp;&nbsp;&nbsp;注：<input type="text" size="78" id="remarks" name="remarks"/>
+ 					</td>
+ 					<td>
+	 					&nbsp;&nbsp;&nbsp;&nbsp;是否付款：<select class="easyui-combobox"  id="state" name="state" style="width: 160px;" editable="false" panelHeight="auto">
+	 														<option value="1">已付</option>
+ 							                            	<option value="2">未付</option>	
+	 												   </select>
+ 					</td>
+ 					<td>
+ 						<input type="hidden" id="returnNumber" name="returnNumber"/>
+ 						<input type="hidden" id="drugsJson" name="drugsJson"/>
+ 						&nbsp;&nbsp;&nbsp;&nbsp;<a type="button" role="button" href="javascript:saveReturnDrugs()" class="btn btn-info btn-sm">保&nbsp;存</a>
+ 					</td>
+ 				</tr>
+ 			</table>
+ 			</form>
+ 		</fieldset>
+	</div>
+	<div region="center" style="padding: 10px;border: 1px;margin-top: 5px">
+		<table id="dg" title="退货出库" class="easyui-datagrid" style="height: 1200px"
+		   fitColumns="true"  rownumbers="true"
+		    fit="true" toolbar="#tb">
+		   <thead>
+		   	<tr>
+		   		<th field="code" width="60" align="center">药品编码</th>
+		   		<th field="name" width="150" align="center">药品名称</th>
+		   		<th field="model" width="50" align="center">型号</th>
+		   		<th field="unit" width="50" align="center" >单位</th>
+		   		<th field="price" width="50" align="center" formatter="formatPrice">单价</th>
+		   		<th field="num" width="50" align="center" >数量</th>
+		   		<th field="total" width="50" align="center" formatter="formatTotal">总金额</th>
+		   		<th field="typeId" width="50" align="center" hidden="true">药品类别Id</th>
+				<th field="drugsId" width="50" align="center" hidden="true">药品Id</th>
+		   	</tr>
+		   </thead>
+		 </table>
+		 <div id="tb">
+		 	<div style="padding: 2px">
+		 		<a href="javascript:openReturnListDrugsAddDialog()" class="easyui-linkbutton" iconCls="icon-add" plain="true">添加</a>
+		 		<a href="javascript:openReturnListDrugsModifyDialog()" class="easyui-linkbutton" iconCls="icon-edit" plain="true">修改</a>
+		 		<a href="javascript:deleteReturnListDrugs()" class="easyui-linkbutton" iconCls="icon-remove" plain="true">删除</a>
+		 	</div> 
+		 </div>
+	</div>
+	
+	<div id="dlg" class="easyui-dialog" style="width:800px;height:460px;"
+	   closed="true" data-options="onClose:function(){$('#s_codeOrName').val('');}" >
+	   <div class="easyui-layout" style="width:100%;height:100%;">
+	   	
+	   		<div region="north" style="height: 50px;" >
+	   			<div style="padding-top: 8px;padding-left: 40px;">
+		   			&nbsp;药品编码或者名称：&nbsp;<input type="text" id="s_codeOrName" size="30" onkeydown="if(event.keyCode==13) searchDrugs()"/>
+		   			<a href="javascript:searchDrugs()" class="easyui-linkbutton" iconCls="icon-search" plain="true">搜索</a>
+	   			</div>
+	   		</div>
+	   		<div region="west" style="width: 200px;height: 210px;overflow: auto;" title="药品类别" split="true" data-options="collapsible:false">
+				<ul id="tree" class="easyui-tree" style="padding: 10px;height: 295px;overflow: auto;"></ul>
+				<div style="position:absolute;bottom: 10px;left: 40px;">
+					<a href="javascript:openDrugsTypeAddDialog()" class="btn btn-success btn-sm glyphicon glyphicon-plus">新增</a>
+			        <a id="del" href="javascript:deleteDrugsType()" class="btn btn-default btn-sm glyphicon glyphicon-minus" data-options="disabled:true">删除</a>
+				</div>
+			</div>
+			<div region="center">
+				<table id="dg3" title="药品信息" class="easyui-datagrid"
+				   fitColumns="true" pagination="true" rownumbers="true" singleSelect="true"
+				   url="/admin/drugs/list" fit="true" toolbar="#tb3">
+				   <thead>
+				   	<tr>
+				   		<th field="id" width="30" hidden=true align="center">编号</th>
+				   		<th field="code" width="50" align="center">药品编码</th>
+				   		<th field="name" width="150" align="left">药品名称</th>
+				   		<th field="model" width="50" align="center">型号</th>
+				   		<th field="unit" width="50" align="center" >单位</th>
+				   		<th field="lastPurchasingPrice" width="50" align="center" formatter="formatLastReturnPrice">上次进价</th>
+				   		<th field="purchasingPrice" width="50" align="center" formatter="formatReturnPrice">成本均价</th>
+				   		<th field="inventoryQuantity" width="50" align="center" >库存数量</th>
+				   	</tr>
+				   </thead>
+				 </table>
+				 <div id="tb3">
+				 	<div>
+				 		<a href="javascript:openDrugsChooseDialog()" class="btn btn-success btn-sm glyphicon glyphicon-ok" plain="true">选择</a>
+				 	</div> 
+				 </div>
+			</div>
+	   </div>
+	   
+	   
+	</div>
+	
+    <div id="dlg2" class="easyui-dialog" style="width:300px;height:120px;padding: 10px 20px"
+	   closed="true" buttons="#dlg-buttons2"  data-options="onClose:function(){$('#drugsTypeName').val('');}">
+	   
+	   <form id="fm" method="post">
+		<div>
+	   		药品类别：&nbsp;<input type="text" id="drugsTypeName" name="name" class="easyui-validatebox" required="true"/>
+		</div>
+	   	
+	   </form>
+	 </div>
+	 
+	  <div id="dlg-buttons2">
+	 	<a href="javascript:saveDrugsType()" class="btn btn-default btn-md">保存</a>
+	 	<a href="javascript:closeDrugsTypeDialog()" class="btn btn-default btn-md">关闭</a>
+	 </div>
+	 
+	 
+	 
+	 <div id="dlg4" class="easyui-dialog" style="width:520px;height:304px;padding: 5px 10px;margin-top: 3px;"
+   closed="true" buttons="#dlg-buttons4" data-options="onClose:function(){resetValue()}">
+   
+   		<fieldset style="border-color: #E7F0FF">
+		    <legend>药品信息</legend>
+		    <form id="fm4" method="post">
+			    <table cellspacing="8px">
+			    	<tr>
+			   			<td>药品编号：</td>
+			   			<td>
+			   				<input type="text" id="code" name="code" size="10" readonly="readonly"/>
+			   			</td>
+			   			<td width="80">药品名称：</td>
+			   			<td><input type="text" id="name" name="name" size="10"  readonly="readonly"/></td>
+			   		</tr>
+			   		<tr>
+			   			<td>药品型号：</td>
+			   			<td><input type="text" id="model" name="model" size="10"  readonly="readonly"/></td>
+			   			<td>药品单位：</td>
+			   			<td><input type="text" id="unit" name="unit" size="10"  readonly="readonly"/></td>
+			   		</tr>
+			   		<tr>
+			   			<td>上次进价：</td>
+			   			<td><input type="text" id="lastReturnPrice" name="lastReturnPrice" size="10" readonly="readonly"/></td>
+			   			<td>当前库存：</td>
+			   			<td><input type="text" id="inventoryQuantity" name="inventoryQuantity" size="10" readonly="readonly"/></td>
+			   		</tr>
+			    </table>
+		    </form>
+		  </fieldset>
+		  <div style="padding-left: 12px;padding-top: 10px">
+		  	<form id="fm5" method="post">
+			  <table cellspacing="8px">
+			    	<tr>
+			   			<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;单价：</td>
+			   			<td>
+			   				<input type="hidden" id="action"/>
+			   				<input type="hidden" id="rowIndex"/>
+			   				<input type="text" id="price" name="price" class="easyui-numberbox"  data-options="min:0,precision:2" required="true" size="10" />
+			   			</td>
+			   			<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;数量：</td>
+			   			<td><input type="text" id="num" name="num" class="easyui-numberbox"  data-options="min:1" required="true" size="10"  /></td>
+			   		</tr>
+			    </table>
+			 </form>
+		  </div>
+ </div>
+ 
+ <div id="dlg-buttons4">
+    <a id="saveAndAddNextBuuton" href="javascript:saveDrugs(2)" class="btn btn-default btn-md">保存并新增下一药品</a>
+ 	<a href="javascript:saveDrugs(1)" class="btn btn-default btn-md">保存</a>
+ 	<a href="javascript:closeDrugsChooseDialog()" class="btn btn-default btn-md">关闭</a>
+ </div>
+	
+</body>
+</html>

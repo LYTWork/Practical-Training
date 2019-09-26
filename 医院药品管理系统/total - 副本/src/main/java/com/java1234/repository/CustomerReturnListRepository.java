@@ -1,0 +1,20 @@
+package com.java1234.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+
+import com.java1234.entity.CustomerReturnList;
+
+/*
+ * 客户退货单Repository接口
+ * @author java1234 AT
+ */
+public interface CustomerReturnListRepository extends JpaRepository<CustomerReturnList, Integer>,JpaSpecificationExecutor<CustomerReturnList>{
+
+	/*
+	 * 获取当天最大客户退货单号
+	 */
+	@Query(value="SELECT MAX(customer_return_number) FROM t_customer_return_list WHERE TO_DAYS(customer_return_date) = TO_DAYS(NOW())",nativeQuery=true)
+    String getTodayMaxCustomerReturnNumber();
+}

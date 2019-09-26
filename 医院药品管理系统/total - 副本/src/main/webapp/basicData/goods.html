@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>药品管理</title>
+<link rel="stylesheet" type="text/css" href="/static/jquery-easyui-1.3.3/themes/default/easyui.css"></link>
+<link rel="stylesheet" type="text/css" href="/static/jquery-easyui-1.3.3/themes/icon.css"></link>
+<script type="text/javascript" src="/static/jquery-easyui-1.3.3/jquery.min.js"></script>
+<script type="text/javascript" src="/static/jquery-easyui-1.3.3/jquery.easyui.min.js"></script>
+<script type="text/javascript" src="/static/jquery-easyui-1.3.3/locale/easyui-lang-zh_CN.js"></script>
+<script type="text/javascript">
+
+
+	var url;
+	
+	//  药品类别模块管理
+
+	$(document).ready(function() {
+		
+		$("#tree").tree({
+			url:'/admin/drugsType/loadTreeInfo',
+			onLoadSuccess:function(node, data){
+				$("#tree").tree('expandAll');
+			},
+			onClick:function(node){
+				if(node.attributes.state==0){ // 假如是叶子节点 删除按钮恢复可用
+					$('#del').linkbutton('enable');
+				}else{
+					$('#del').linkbutton('disable');
+				}
+				$("#dg").datagrid('load',{
+					"name":$("#s_name").val(),
+					"type.id":node.id
+				});
+			}
+		});
+		
+	});
+	
+	
+	function openDrugsTypeAddDialog(){
+		$("#dlg").dialog("open").dialog("setTitle","新增药品类别");
+	}
+	
+	function deleteDrugsType(){
+		var node = $('#tree').tree('getSelected'); // 获取选中节点
+		var id=node.id;
+		$.post("/admin/drugsType/delete",{id:id},function(result){
+			if(result.success){
+				$('#tree').tree('reload');
+			}else{
+				$.messager.alert("系统提示","提交失败，请联系管理员！");
+			}
+			$('#del').linkbutton('disable');
+		},"json");
+	}
+	
+	function saveDrugsType(){
+		var drugsTypeName=$("#drugsTypeName").val();
+		if(!$("#fm").form("validate")){
+			return;
+		}
+		var node = $('#tree').tree('getSelected'); // 获取选中节点
+		var parentId; // 父节点Id
+		if(node==null){
+			parentId=1;
+		}else{
+			parentId=node.id;
+		}
+		$.post("/admin/drugsType/save",{name:drugsTypeName,parentId:parentId},function(result){
+			if(result.success){
+				$('#tree').tree('reload');
+				closeDrugsTypeDialog();
+			}else{
+				$.messager.alert("系统提示","提交失败，请联系管理员！");
+			}
+		},"json");
+	}
+	
+
+	
+	function closeDrugsTypeDialog(){
+		$("#dlg").dialog("close");
+		$("#drugsTypeName").val("");
+	}
+	
+	
+	
+	// 药品管理模块
+	
+	
+	function formatDrugsTypeId(val,row){
+		 return row.type.id;
+	 }
+	
+	function formatDrugsTypeName(val,row){
+		return row.type.name;
+	}
+	
+	function searchDrugs(){
+		$("#dg").datagrid('load',{
+			"name":$("#s_name").val() 
+		});
+	}
+	
+	function formatPurchasingPrice(val,row){
+		return "￥"+val;	
+	}
+	
+	function formatSellingPrice(val,row){
+		return "￥"+val;	
+	}
+	
+	
+	function openDrugsAddDialog(){
+		$("#dlg2").dialog("open").dialog("setTitle","添加药品信息");
+		url="/admin/drugs/save";
+		var node = $('#tree').tree('getSelected'); // 获取选中节点
+		if(node!=null&&node.id!=1){
+			$("#typeId").val(node.id);
+			$("#typeName").val(node.text);
+		}else{
+			$("#typeId").val("");
+			$("#typeName").val("");
+		}
+		$.post("/admin/drugs/genDrugsCode",{},function(result){
+			$("#code").val(result);
+		});
+		$("#saveAndAddNextBuuton").show();
+	}
+	
+	function openDrugsModifyDialog(){
+		var selectedRows=$("#dg").datagrid("getSelections");
+		 if(selectedRows.length!=1){
+			 $.messager.alert("系统提示","请选择一条要修改的数据！");
+			 return;
+		 }
+		 var row=selectedRows[0];
+		 $("#dlg2").dialog("open").dialog("setTitle","修改药品信息");
+		 $("#fm2").form("load",row);
+		 $("#typeId").val(row.type.id);
+		 $("#typeName").val(row.type.name);
+		 url="/admin/drugs/save?id="+row.id;
+		 $("#saveAndAddNextBuuton").hide();
+	}
+	
+	function chooseDrugsType(){
+		$("#dlg3").dialog("open").dialog("setTitle","选择药品类别");
+		$("#typeTree").tree({
+			url:'/admin/drugsType/loadTreeInfo',
+			onLoadSuccess:function(node, data){
+				var rootNode = $("#typeTree").tree('getRoot'); 
+				$("#typeTree").tree('expand',rootNode.target);
+			}
+		});
+	}
+	
+	
+	function saveDrugsTypeChoose(){
+		var node = $('#typeTree').tree('getSelected'); // 获取选中节点
+		if(node!=null&&node.id!=1){
+			$("#typeId").val(node.id);
+			$("#typeName").val(node.text);
+		}
+		$("#dlg3").dialog("close");
+	}
+	
+	function closeDrugsTypeChooseDialog(){
+		$("#dlg3").dialog("close");
+	}
+	
+	
+	function saveDrugs(type){
+		$("#fm2").form("submit",{
+			url:url,
+			onSubmit:function(){
+				return $(this).form("validate");
+			},
+			success:function(result){
+				var result=eval('('+result+')');
+				if(result.success){
+					$.messager.alert("系统提示","保存成功！");
+					resetValue();	
+					if(type==2){
+						var node = $('#tree').tree('getSelected'); // 获取选中节点
+						if(node!=null&&node.id!=1){
+							$("#typeId").val(node.id);
+							$("#typeName").val(node.text);
+						}else{
+							$("#typeId").val("");
+							$("#typeName").val("");
+						}
+						$.post("/admin/drugs/genDrugsCode",{},function(result){
+							$("#code").val(result);
+						});						
+					}
+					if(type==1){
+						$("#dlg2").dialog("close");
+					}
+					$("#dg").datagrid("reload");
+				}else{
+					$.messager.alert("系统提示",result.errorInfo);
+				}
+			}
+		 });
+	}
+	
+	function resetValue(){
+		$("#typeId").val("");
+		$("#typeName").val("");
+		$("#id").val("");
+		$("#name").val("");
+		$("#model").val("");
+		$("#unit").combobox("setValue","");
+		$('#purchasingPrice').numberbox('setValue', "");
+		$('#sellingPrice').numberbox('setValue', "");
+		$('#minNum').numberbox('setValue', "");
+		$("#producer").val("");
+		$("#remarks").val("");
+	}
+	
+	function closeDrugsDialog(){
+		$("#dlg2").dialog("close");
+		resetValue();
+	}
+	
+	function deleteDrugs(){
+		var selectedRows=$("#dg").datagrid("getSelections");
+		if(selectedRows.length==0){
+			 $.messager.alert("系统提示","请选择要删除的数据！");
+			 return;
+		 }
+		 var id=selectedRows[0].id;
+		 $.messager.confirm("系统提示","您确定要删除这条数据吗？",function(r){
+				if(r){
+					$.post("/admin/drugs/delete",{id:id},function(result){
+						if(result.success){
+							 $.messager.alert("系统提示","数据已成功删除！");
+							 $("#dg").datagrid("reload");
+						}else{
+							$.messager.alert("系统提示","<font color=red>"+result.errorInfo+"</font>");
+						}
+					},"json");
+				} 
+	   });
+	}
+	
+	
+	
+	
+	
+	
+	// 药品单位模块
+	
+	
+	function openChooseDrugsUnitDialog(){
+		$("#dlg4").dialog("open").dialog("setTitle","单位");
+	}
+	
+	function openDrugsUnitAddDialog(){
+		$("#dlg5").dialog("open").dialog("setTitle","添加单位信息");
+	}
+	
+	
+	function deleteDrugsUnit(){
+		var selectedRows=$("#dg4").datagrid("getSelections");
+		if(selectedRows.length!=1){
+			 $.messager.alert("系统提示","请选择要删除的数据！");
+			 return;
+		 }
+		 var id=selectedRows[0].id;
+		 $.messager.confirm("系统提示","您确定要删除这条数据吗？",function(r){
+				if(r){
+					$.post("/admin/drugsUnit/delete",{id:id},function(result){
+						if(result.success){
+							 $("#dg4").datagrid("reload");
+						}else{
+							$.messager.alert("系统提示",result.errorInfo);
+						}
+					},"json");
+				} 
+	   });
+	}
+	
+	function chooseDrugsUnit(){
+		var selectedRows=$("#dg4").datagrid("getSelections");
+		if(selectedRows.length!=1){
+			 $.messager.alert("系统提示","请选择单位！");
+			 return;
+		}
+		var name=selectedRows[0].name;
+		$("#unit").combobox("reload");
+		$("#unit").combobox("setValue",name);
+		$("#dlg4").dialog("close");
+	}
+	
+	function closeDrugsUnitDialog(){
+		$("#dlg4").dialog("close");
+	}
+	
+	function saveDrugsUnit(){
+		$("#fm5").form("submit",{
+			url:"/admin/drugsUnit/save",
+			onSubmit:function(){
+				return $(this).form("validate");
+			},
+			success:function(result){
+				var result=eval('('+result+')');
+				if(result.success){
+					$.messager.alert("系统提示","保存成功！");
+					closeDrugsUnitAddDialog();
+					$("#dg4").datagrid("reload");
+				}else{
+					$.messager.alert("系统提示",result.errorInfo);
+				}
+			}
+		 });
+	}
+	
+	function closeDrugsUnitAddDialog(){
+		$("#dlg5").dialog("close");
+		$("#drugsUnitName").val("");
+	}
+	
+	
+	$(function () {  
+		 
+		 $("#dg").datagrid({  
+		        //双击事件  
+		        onDblClickRow: function (index, row) {  
+		        	$("#dlg2").dialog("open").dialog("setTitle","修改药品信息");
+		   		   $("#fm2").form("load",row);
+		   		   $("#typeId").val(row.type.id);
+		   		   $("#typeName").val(row.type.name);
+		   		   url="/admin/drugs/save?id="+row.id;
+		   		   $("#saveAndAddNextBuuton").hide();
+		        }  
+		    });  
+		 
+		 
+		 $("#dg4").datagrid({  
+		        //双击事件  
+		        onDblClickRow: function (index, row) {  
+		        	var selectedRows=$("#dg4").datagrid("getSelections");
+		    		var name=selectedRows[0].name;
+		    		$("#unit").combobox("reload");
+		    		$("#unit").combobox("setValue",name);
+		    		$("#dlg4").dialog("close");
+		        }  
+		    });  
+		 
+		 
+		 
+		 
+	 });
+	
+
+</script>
+</head>
+<body class="easyui-layout" style="padding-top: 2px">
+<div data-options="region:'west',collapsible:false" style="width:200px" title="药品类别" split=true>
+	<ul id="tree" class="easyui-tree" style="padding: 10px"></ul>
+	<div style="position:absolute;bottom: 10px;left: 15px">
+		<a href="javascript:openDrugsTypeAddDialog()" class="easyui-linkbutton" data-options="iconCls:'icon-add'">新增</a>
+        <a id="del" href="javascript:deleteDrugsType()" class="easyui-linkbutton" data-options="iconCls:'icon-remove',disabled:true">删除</a>
+	</div>
+</div>
+<div data-options="region:'center'">
+		<table id="dg" title="药品管理" class="easyui-datagrid"
+		   fitColumns="true" pagination="true" rownumbers="true" singleSelect="true"
+		   url="/admin/drugs/list" fit="true" toolbar="#tb">
+		   <thead>
+		   	<tr>
+		   		<th field="id" width="20" align="center">编号</th>
+		   		<th field="code" width="30" align="center">药品编码</th>
+		   		<th field="name" width="150" align="center">药品名称</th>
+		   		<th field="model" width="50" align="center">型号</th>
+		   		<th field="typeId" width="40" align="center" formatter="formatDrugsTypeId" hidden=true>类别ID</th>
+		   		<th field="typeName" width="50" align="center" formatter="formatDrugsTypeName">类别</th>
+		   		<th field="unit" width="50" align="center" >单位</th>
+		   		<th field="purchasingPrice" width="50" align="right" formatter="formatPurchasingPrice">采购价</th>
+		   		<th field="sellingPrice" width="50" align="right" formatter="formatSellingPrice">出售价</th>
+		   		<th field="minNum" width="50" align="center" >库存下限</th>
+		   		<th field="producer" width="200" align="center">生产产商</th>
+		   		<th field="remarks" width="150" align="center" hidden=true>备注</th>
+		   	</tr>
+		   </thead>
+		 </table>
+		 <div id="tb">
+		 	<div>
+		 		<a href="javascript:openDrugsAddDialog()" class="easyui-linkbutton" iconCls="icon-add" plain="true">添加</a>
+		 		<a href="javascript:openDrugsModifyDialog()" class="easyui-linkbutton" iconCls="icon-edit" plain="true">修改</a>
+		 		<a href="javascript:deleteDrugs()" class="easyui-linkbutton" iconCls="icon-remove" plain="true">删除</a>
+		 	</div> 
+		 	<div>
+		 		&nbsp;药品名称：&nbsp;<input type="text" id="s_name" size="20" onkeydown="if(event.keyCode==13) searchDrugs()"/>
+		 		<a href="javascript:searchDrugs()" class="easyui-linkbutton" iconCls="icon-search" plain="true">搜索</a>
+		 	</div>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+		 </div>
+</div>
+
+<div id="dlg" class="easyui-dialog" style="width:300px;height:120px;padding: 10px 20px"
+   closed="true" buttons="#dlg-buttons"  data-options="onClose:function(){$('#drugsTypeName').val('');}">
+   
+   <form id="fm" method="post">
+	<div>
+   		药品类别：&nbsp;<input type="text" id="drugsTypeName" name="name" class="easyui-validatebox" required="true"/>
+	</div>
+   	
+   </form>
+ </div>
+ 
+ <div id="dlg-buttons">
+ 	<a href="javascript:saveDrugsType()" class="easyui-linkbutton" iconCls="icon-ok">保存</a>
+ 	<a href="javascript:closeDrugsTypeDialog()" class="easyui-linkbutton" iconCls="icon-cancel">关闭</a>
+ </div>
+ 
+ <div id="dlg2" class="easyui-dialog" style="width: 500px;height:400px;padding: 10px 20px"
+	  closed="true" buttons="#dlg-buttons2"  data-options="onClose:function(){resetValue()}">
+	 	<form id="fm2" method="post">
+	 		<table cellspacing="8px">
+	 			<tr>
+	 				<td>所属类别：</td>
+	 				<td>
+	 					<input type="hidden" id="typeId" name="type.id"/>
+	 					<input type="text" id="typeName"  class="easyui-validatebox" required="true" style="width: 90px;" readonly="readonly" onclick="chooseDrugsType()"/>
+	 					<a href="javascript:chooseDrugsType()" class="easyui-linkbutton" iconCls="icon-search"  plain="true"></a>
+	 				</td>
+	 				<td>&nbsp;&nbsp;&nbsp;&nbsp;</td>
+	 				<td>药品编码：</td>
+	 				<td ><input type="text" id="code" name="code" class="easyui-validatebox" required="true" readonly="readonly" style="width: 120px;"/></td>
+	 			</tr>
+	 			<tr>
+	 				<td>药品名称：</td>
+	 				<td colspan="4">
+	 					<input type="text" id="name" name="name" class="easyui-validatebox" required="true" style="width: 350px;"/>
+	 				</td>
+	 			</tr>
+	 			<tr>
+	 				<td>药品型号：</td>
+	 				<td><input type="text" id="model" name="model" class="easyui-validatebox" required="true" style="width: 120px;"/></td>
+	 				<td>&nbsp;&nbsp;&nbsp;&nbsp;</td>
+	 				<td>单位：</td>
+	 				<td>
+	 					<select class="easyui-combobox" required="true" id="unit" name="unit"  style="width: 90px;" data-options="panelHeight:'auto',editable:false,valueField:'name',textField:'name',url:'/admin/drugsUnit/comboList'">
+	 					</select>
+	 					<a href="javascript:openChooseDrugsUnitDialog()" class="easyui-linkbutton" iconCls="icon-search"  plain="true"></a>
+	 				</td>
+	 			</tr>
+	 			<tr>
+	 				<td>采购价：</td>
+	 				<td><input type="text" id="purchasingPrice" name="purchasingPrice" class="easyui-numberbox"  data-options="min:0" required="true" style="width: 120px;"/></td>
+	 				<td>&nbsp;&nbsp;&nbsp;&nbsp;</td>
+	 				<td>销售价：</td>
+	 				<td><input type="text" id="sellingPrice" name="sellingPrice" class="easyui-numberbox" data-options="min:0" required="true" style="width: 120px;"/></td>
+	 			</tr>
+	 			<tr>
+	 				<td>库存下限：</td>
+	 				<td colspan="4">
+	 					<input type="text" id="minNum" name="minNum" data-options="min:0" class="easyui-numberbox" required="true" style="width: 120px;"/>
+	 				</td>
+	 			</tr>
+	 			<tr>
+	 				<td>生产厂商：</td>
+	 				<td colspan="4">
+	 					<input type="text" id="producer" name="producer" class="easyui-validatebox" required="true" style="width: 350px;"/>
+	 				</td>
+	 			</tr>
+	 			<tr>
+	 				<td valign="top">备注：</td>
+	 				<td colspan="4">
+	 					<textarea rows="5" cols="47" id="remarks" name="remarks"></textarea>
+	 				</td>
+	 			</tr>
+	 		</table>
+	 	</form>
+	</div>
+	
+	<div id="dlg-buttons2">
+	    <a id="saveAndAddNextBuuton" href="javascript:saveDrugs(2)" class="easyui-linkbutton" iconCls="icon-ok">保存并新增下一药品</a>
+		<a href="javascript:saveDrugs(1)" class="easyui-linkbutton" iconCls="icon-ok">保存</a>
+		<a href="javascript:closeDrugsDialog()" class="easyui-linkbutton" iconCls="icon-cancel">关闭</a>
+	</div>
+ 
+ 
+   <div id="dlg3" class="easyui-dialog" style="width:180px;height:300px;padding: 10px 10px"
+   closed="true" buttons="#dlg-buttons3">
+   
+   	<ul id="typeTree" class="easyui-tree"></ul>
+   
+  </div>
+ 
+ <div id="dlg-buttons3">
+ 	<a href="javascript:saveDrugsTypeChoose()" class="easyui-linkbutton" iconCls="icon-ok" plain="true">选择</a>
+ 	<a href="javascript:closeDrugsTypeChooseDialog()" class="easyui-linkbutton" iconCls="icon-cancel" plain="true">关闭</a>
+ </div>
+ 
+ 	<div id="dlg4" class="easyui-dialog" style="width:200px;height:300px;"
+  	 closed="true">
+   
+   		<table id="dg4"  class="easyui-datagrid" rownumbers="true" singleSelect="true"
+		  url="/admin/drugsUnit/listAll" fitColumns="true" fit="true" toolbar="#tb2">
+		   <thead>
+		   	<tr>
+		   		<th field="id" width="100" align="center" hidden=true>单位ID</th>
+		   		<th field="name" width="100" align="center">单位名称</th>
+		   	</tr>
+		   </thead>
+		 </table>
+		 <div id="tb2">
+		 	<div>
+		 		<a href="javascript:openDrugsUnitAddDialog()" class="easyui-linkbutton"  plain="true">添加</a>
+		 		<a href="javascript:deleteDrugsUnit()" class="easyui-linkbutton"  plain="true">删除</a>
+		 		<a href="javascript:chooseDrugsUnit()" class="easyui-linkbutton"  plain="true">确定</a>
+		 		<a href="javascript:closeDrugsUnitDialog()" class="easyui-linkbutton"  plain="true">取消</a>
+		 	</div> 
+		 </div>
+   
+   </div>
+  
+  <div id="dlg5" class="easyui-dialog" style="width:300px;height:120px;padding: 10px 20px"
+   closed="true" buttons="#dlg-buttons5"  data-options="onClose:function(){$('#drugsUnitName').val('');}">
+   
+   <form id="fm5" method="post">
+	<div>
+   		药品单位：&nbsp;<input type="text" id="drugsUnitName" name="name" class="easyui-validatebox" required="true"/>
+	</div>
+   	
+   </form>
+ </div>
+ 
+ <div id="dlg-buttons5">
+ 	<a href="javascript:saveDrugsUnit()" class="easyui-linkbutton" iconCls="icon-ok">保存</a>
+ 	<a href="javascript:closeDrugsUnitAddDialog()" class="easyui-linkbutton" iconCls="icon-cancel">关闭</a>
+ </div>
+ 
+</body>
+</html>

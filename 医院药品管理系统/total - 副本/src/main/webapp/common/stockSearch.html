@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>当前库存查询</title>
+
+<link rel="stylesheet" type="text/css" href="//at.alicdn.com/t/font_1177266_q1ww71cl7cj.css">
+<link rel="stylesheet" type="text/css" href="/static/bootstrap3/css/bootstrap.css">
+<link rel="stylesheet" type="text/css" href="/static/jquery-easyui-1.3.3/themes/default/easyui.css">
+<script type="text/javascript" src="/static/jquery-easyui-1.3.3/jquery.min.js"></script>
+<script type="text/javascript" src="/static/iconfont/iconfont.css"></script>
+<script type="text/javascript" src="/static/jquery-easyui-1.3.3/jquery.easyui.min.js"></script>
+<script type="text/javascript" src="/static/jquery-easyui-1.3.3/locale/easyui-lang-zh_CN.js"></script>
+<script type="text/javascript" src="/static/bootstrap3/js/bootstrap.min.js"></script>
+<style>
+	.btn-sm {
+		position: relative;
+		top: -2px;
+	}
+	#dlg-buttons2 {
+		display: block;
+		width: 200px;
+		position: relative;
+		top: -35px;
+		left: -32px;
+	}
+	#dlg-buttons2 a{
+		margin-left: 30px;
+	}
+</style>
+<script type="text/javascript">
+
+
+    function formatAmount(val,row){
+		return "￥"+(row.inventoryQuantity*row.purchasingPrice).toFixed(2);
+	}
+    
+    function formatDrugsTypeName(val,row){
+		return row.type.name;
+	}
+    
+    function formatLastPurchasingPrice(val,row){
+		return "￥"+val;	
+	}
+	
+    function formatPurchasingPrice(val,row){
+		return "￥"+val;	
+	}
+	
+	function formatSellingPrice(val,row){
+		return "￥"+val;	
+	}
+	 
+	function chooseDrugsType(){
+		$("#dlg2").dialog("open").dialog("setTitle","选择药品类别");
+		$("#typeTree").tree({
+			url:'/admin/drugsType/loadTreeInfo',
+			onLoadSuccess:function(node, data){     //加载显示药品类别
+				var rootNode = $("#typeTree").tree('getRoot'); 
+				$("#typeTree").tree('expand',rootNode.target);
+			}
+		});
+	}
+	
+	function saveDrugsTypeChoose(){
+		var node = $('#typeTree').tree('getSelected'); // 获取选中节点
+		$("#typeId").val(node.id);
+		$("#typeName").val(node.text);
+		$("#dlg2").dialog("close");
+	}
+	
+	function closeDrugsTypeChooseDialog(){
+		$("#dlg2").dialog("close");
+	}
+	
+	function searchStock(){
+		$("#dg").datagrid('load',{
+			"type.id":$("#typeId").val(),
+			"codeOrName":$("#codeOrName").val()
+		});
+	}
+</script>
+</head>
+<body style="margin: 1px">
+<table id="dg" title="当前库存查询" class="easyui-datagrid"
+   fitColumns="true" pagination="true" rownumbers="true" pageSize=20
+   url="/admin/drugs/listInventory" fit="true" toolbar="#tb">
+   <thead>
+   	<tr>
+   		<th field="code" width="45px" align="center">药品编码</th>
+   		<th field="name" width="150px" align="center">药品名称</th>
+   		<th field="typeName" width="50px" align="center" formatter="formatDrugsTypeName">类别</th>
+   		<th field="model" width="50px" align="center">型号</th>
+   		<th field="inventoryQuantity" width="50px" align="center">库存数量</th>
+   		<th field="saleTotal" width="50px" align="center">销售总数</th>
+   		<th field="lastPurchasingPrice" width="50px" align="right" formatter="formatLastPurchasingPrice">上次进价</th>
+   		<th field="purchasingPrice" width="50px" align="right" formatter="formatPurchasingPrice">成本均价</th>
+   		<th field="sellingPrice" width="50px" align="right" formatter="formatSellingPrice">销售价</th>
+   		<th field="amount" width="60px" align="right" formatter="formatAmount">库存总值</th>
+   		<th field="unit" width="50px" align="center" >单位</th>
+   		<th field="producer" width="160px" align="center">生产产商</th>
+   		<th field="remarks" width="150px" align="center" hidden=true>备注</th>
+   	</tr>
+   </thead>
+ </table>
+ 
+ <div id="tb">
+ 	<div style="padding: 5px">
+ 		&nbsp;药品类别&nbsp;
+ 		<input type="hidden" id="typeId"/>
+ 		<input type="text" id="typeName"  style="width: 90px;" readonly="readonly" onclick="chooseDrugsType()"/>
+ 		&nbsp;药品编码或者名称：&nbsp;<input type="text" id="codeOrName" size="20" onkeydown="if(event.keyCode==13) searchStock()"/>
+		<a href="javascript:searchStock()" class="btn btn-default btn-sm glyphicon glyphicon-search" plain="true"></a>
+ 	</div>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+ </div>
+ 
+ <!--//点击设置弹出的选择对话框-->
+<div id="dlg2" class="easyui-dialog" style="width:180px;height:340px;padding: 10px 10px;top: 52px;left: 80px;overflow: auto;"
+	 closed="true" buttons="#dlg-buttons2">
+
+	<ul id="typeTree" class="easyui-tree"></ul>
+
+</div>
+<!--对话框按钮-->
+<div id="dlg-buttons2">
+	<a href="javascript:saveDrugsTypeChoose()" class="btn btn-success btn-sm glyphicon glyphicon-ok" plain="true">选择</a>
+	<a href="javascript:closeDrugsTypeChooseDialog()" class="btn btn-default btn-sm glyphicon glyphicon-remove" plain="true">关闭</a>
+</div>
+
+
+</body>
+</html>

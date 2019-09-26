@@ -1,0 +1,14 @@
+server:
+  port: 8088
+  context-path: /
+spring:
+   datasource:
+      driverClassName: com.mysql.jdbc.Driver
+      url: jdbc:mysql://localhost:3306/db_jxc?useUnicode=true&characterEncoding=UTF-8
+      username: root
+      password:
+   jpa:
+     hibernate.ddl-auto: update
+     show-sql: true
+   thymeleaf:
+    cache: false
